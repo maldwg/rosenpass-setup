@@ -1,0 +1,11 @@
+FROM archlinux:latest
+# update pacman
+RUN pacman -Sy
+# install packages
+RUN pacman -S git rosenpass --noconfirm
+# create DIR for sharing data later in compose file
+RUN mkdir /server-client-pub-key 
+# generate priv-key + generate pub-key
+RUN rp genkey client.rosenpass-secret 
+RUN  rp pubkey client.rosenpass-secret client.rosenpass-public 
+COPY ./sysctl.conf /etc/sysctl.conf_saved

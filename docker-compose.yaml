@@ -1,0 +1,66 @@
+version: '3.7'
+
+services:
+  server:
+    build: ./server
+    networks:
+      rosenpass:
+        ipv4_address: 172.26.0.2
+        ipv6_address: fe90::2
+    volumes:
+      - vpn_test:/server-client-pub-key
+      - /run/docker/netns:/run/docker/netns
+    command: 
+      - /bin/bash
+      - -c
+      - |
+        cp /etc/sysctl.conf_saved /etc/sysctl.conf
+        sysctl -p
+        cp -r /server.rosenpass-public /server-client-pub-key/server.rosenpass-public
+        rp exchange server.rosenpass-secret dev rosenpass0 listen 172.26.0.2:9999 peer /server-client-pub-key/client.rosenpass-public allowed-ips fe90::/64 &
+        sleep 5
+        ip a add fe90::2/64 dev rosenpass0
+        sleep 100000
+    # TODO: add commands to start peering
+    # TODO: add capability for networking
+    cap_add:
+      - NET_ADMIN
+    privileged: true
+  client:
+    build: ./client
+    networks:
+     rosenpass:
+        ipv4_address: 172.26.0.3
+        ipv6_address: fe90::3
+    volumes:
+      - vpn_test:/server-client-pub-key
+      - /run/docker/netns:/run/docker/netns
+    command: 
+      - /bin/bash
+      - -c
+      - |
+        cp /etc/sysctl.conf_saved /etc/sysctl.conf
+        sysctl -p
+        cp -r /client.rosenpass-public /server-client-pub-key/client.rosenpass-public
+        rp exchange client.rosenpass-secret dev rosenpass0 peer /server-client-pub-key/server.rosenpass-public endpoint 172.26.0.2:9999  allowed-ips fe90::/64 &     
+        sleep 5
+        ip a add fe90::3/64 dev rosenpass0
+        sleep 100000
+    cap_add:
+      - NET_ADMIN
+    privileged: true
+networks:
+  rosenpass:
+    driver: bridge
+    enable_ipv6: true
+    driver_opts:
+      com.docker.network.enable_ipv6: "true"
+    ipam:
+      driver: default
+      config:
+      - subnet: 172.26.0.0/16
+        gateway: 172.26.0.1
+      - subnet: fe90::/64
+        gateway: fe90::1
+volumes:
+  vpn_test:
